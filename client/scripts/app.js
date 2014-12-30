@@ -2,7 +2,7 @@ $(document).ready(function() {
   //   global username variable is stored in URL string which is accessed by window.location.search. Slice to get just username
   var userName = window.location.search.slice(10);
 
-  var rooms = [];
+  var rooms = [false];
 
   //populate the array of rooms with all unique rooms
   $.ajax({
@@ -15,17 +15,16 @@ $(document).ready(function() {
     type: 'GET',
     contentType: 'application/json',
     success: function (data) {
+      //iterate through results array to find unique room names
       for(var i = 0; i < data.results.length; i++) {
-        if(rooms.indexOf(data.results[i].roomname) === -1) {
-          rooms.push(data.results[i].roomname);
-
+        var cleanRoom = escapeHtml(data.results[i].roomname);
+        //if the name is unique
+        if(rooms.indexOf(cleanRoom) === -1) {
+          rooms.push(cleanRoom);
+          //add it to our select dropdown
+          var $option = $('<option value=' + cleanRoom + '>' + cleanRoom + '</option>');
+          $('select').append($option);
         }
-      }
-      for(var j = 0; j < rooms.length; j++) {
-        console.log(j);
-        var $option = $('<option value=' + rooms[j] + '>' + rooms[j] + '</option>');
-        console.log($option);
-        $('select').append($option);
       }
     },
     error: function (data) {
@@ -33,29 +32,6 @@ $(document).ready(function() {
     }
   });
 
-
-
-  // build event listener on send button, using text from input box
-  $('.sendButton').on('click', function() {
-    var message = {
-      'username': userName,
-      'text': $('.messageInput').val(),
-      'roomname': $('.roomInput').val() || 'default'
-    };
-    // ajax call to POST message
-    $.ajax({
-      url: 'https://api.parse.com/1/classes/chatterbox',
-      type: 'POST',
-      data: JSON.stringify(message),
-      contentType: 'application/json',
-      success: function (data) {
-        console.log('chatterbox: Message sent');
-      },
-      error: function (data) {
-        console.error('chatterbox: Failed to send message');
-      }
-    });
-  });
 
   //map of dangerous characters to a hex representation
   var entityMap = {
@@ -108,7 +84,6 @@ $(document).ready(function() {
           $roomname.text("room: " + escapeHtml(datum.roomname))
           $roomname.appendTo($pTag);
 
-
           $('.messages').append($pTag);
         }
       },
@@ -136,23 +111,22 @@ $(document).ready(function() {
   }
 
   //initial call to refresh page for new chats
-  var allMessageRefresh = setInterval(chatRefresh,10000);
+  var allMessageRefresh = setInterval(chatRefresh,1000);
+
+
+  //***The following section is all of our event handlers***
 
 
   //right now this is breaking on rooms with a space in their name. it only selects the first word.
   $('.messages').on("click",".roomnameSpan",function() {
-    console.log(this);
     //chatRefresh logic depends on roomID variable, setting roomID makes subsequent refreshes show only messages from roomID
     roomID = $(this).attr('roomsname');
     chatRefresh();
   });
 
   $('.messages').on("click",".usernameSpan",function() {
-    console.log(this);
     //chatRefresh logic depends on roomID variable, setting roomID makes subsequent refreshes show only messages from roomID
-
     friendsList.push($(this).attr('usersname'));
-    console.log(friendsList);
     chatRefresh();
   });
 
@@ -163,8 +137,34 @@ $(document).ready(function() {
   });
   chatRefresh();
 
+  //this updates roomID whenever the value in the select CHANGES
+  $('select').on("change", function() {
+    roomID = $('select option:selected').val();
+    chatRefresh();
+  })
+
+  // build event listener on send button, using text from input box
+  $('.sendButton').on('click', function() {
+    var message = {
+      'username': userName,
+      'text': $('.messageInput').val(),
+      'roomname': $('.roomInput').val() || 'default'
+    };
+    // ajax call to POST message
+    $.ajax({
+      url: 'https://api.parse.com/1/classes/chatterbox',
+      type: 'POST',
+      data: JSON.stringify(message),
+      contentType: 'application/json',
+      success: function (data) {
+        console.log('chatterbox: Message sent');
+      },
+      error: function (data) {
+        console.error('chatterbox: Failed to send message');
+      }
+    });
+  });
+
 });
 
-//give user a list of rooms to choose from
-//
 //backbone
