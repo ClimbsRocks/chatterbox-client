@@ -1,6 +1,40 @@
 $(document).ready(function() {
   //   global username variable is stored in URL string which is accessed by window.location.search. Slice to get just username
   var userName = window.location.search.slice(10);
+
+  var rooms = [];
+
+  //populate the array of rooms with all unique rooms
+  $.ajax({
+    url: 'https://api.parse.com/1/classes/chatterbox',
+    // sets data parameter based on user input above
+    data: {
+      order: "-createdAt",
+      limit: 500
+    },
+    type: 'GET',
+    contentType: 'application/json',
+    success: function (data) {
+      for(var i = 0; i < data.results.length; i++) {
+        if(rooms.indexOf(data.results[i].roomname) === -1) {
+          rooms.push(data.results[i].roomname);
+
+        }
+      }
+      for(var j = 0; j < rooms.length; j++) {
+        console.log(j);
+        var $option = $('<option value=' + rooms[j] + '>' + rooms[j] + '</option>');
+        console.log($option);
+        $('select').append($option);
+      }
+    },
+    error: function (data) {
+      console.error('chatterbox: Failed to receive message');
+    }
+  });
+
+
+
   // build event listener on send button, using text from input box
   $('.sendButton').on('click', function() {
     var message = {
@@ -50,13 +84,32 @@ $(document).ready(function() {
       type: 'GET',
       contentType: 'application/json',
       success: function (data) {
-        console.log(data)
         //clear messages before appending, or duplicate entries will appear
         $('.messages').html('');
         //looping through returned data, formatting and appending each data point to the DOM
         for(var i = 0; i < data.results.length; i++) {
-          var pTag = "<p class=" + escapeHtml(data.results[i].roomname) + ">" + escapeHtml(data.results[i].username) + ': ' + escapeHtml(data.results[i].text) + ' room: ' + escapeHtml(data.results[i].roomname) + "</p>";
-          $('.messages').append(pTag);
+          //set each data point to variable datum
+          var datum = data.results[i];
+          //create jquery pTag with message text
+          var $pTag =  $('<p> ' + escapeHtml(datum.text) + " " +'</p>');
+          // set jquery username to span with class usernameSpan
+          var $username = $('<span class="usernameSpan"></span>');
+          // set attribute 'usersname' to '$username'
+          $username.attr('usersname', escapeHtml(datum.username));
+          // add username to jquery username object
+          $username.text(escapeHtml(datum.username)+ ":")
+          if(friendsList.indexOf(escapeHtml(datum.username)) !== -1) {
+            $pTag.addClass('friends');
+          }
+          $username.prependTo($pTag);
+
+          var $roomname = $('<span class="roomnameSpan"></span>');
+          $roomname.attr('roomsname', escapeHtml(datum.roomname));
+          $roomname.text("room: " + escapeHtml(datum.roomname))
+          $roomname.appendTo($pTag);
+
+
+          $('.messages').append($pTag);
         }
       },
       error: function (data) {
@@ -67,6 +120,7 @@ $(document).ready(function() {
 
   //set roomID to global scope for use in callback functions
   var roomID;
+  var friendsList = [];
   // callback function for setInterval and other
   var chatRefresh = function() {
     var dataToPassIn = {
@@ -82,20 +136,35 @@ $(document).ready(function() {
   }
 
   //initial call to refresh page for new chats
-  var allMessageRefresh = setInterval(chatRefresh,2000);
+  var allMessageRefresh = setInterval(chatRefresh,10000);
 
 
   //right now this is breaking on rooms with a space in their name. it only selects the first word.
-  $('.messages').on("click","p",function() {
+  $('.messages').on("click",".roomnameSpan",function() {
+    console.log(this);
     //chatRefresh logic depends on roomID variable, setting roomID makes subsequent refreshes show only messages from roomID
-    roomID = $(this).attr('class');
+    roomID = $(this).attr('roomsname');
+    chatRefresh();
   });
+
+  $('.messages').on("click",".usernameSpan",function() {
+    console.log(this);
+    //chatRefresh logic depends on roomID variable, setting roomID makes subsequent refreshes show only messages from roomID
+
+    friendsList.push($(this).attr('usersname'));
+    console.log(friendsList);
+    chatRefresh();
+  });
+
+  //take user back to overall lobby
+  $('.home').on('click',function() {
+    roomID = false;
+    chatRefresh();
+  });
+  chatRefresh();
+
 });
 
-//take user back to overall lobby
 //give user a list of rooms to choose from
-//add in new input box to let the user choose room to send message to
-//
-//let user "friend" other users and bold their messages
 //
 //backbone
